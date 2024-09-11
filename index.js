@@ -1,14 +1,10 @@
-/**
- * Main entry point for the Express server.
- * Sets up middleware, routes, and error handling.
- * 
- * @module app
- */
+// index.js
+import app from './app.js';
+import { config } from 'dotenv';
 
-import express, { json } from 'express';
+config();
 
-const app = express();
-
-app.use(json());
-
-export default app;
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
