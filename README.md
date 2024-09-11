@@ -45,8 +45,7 @@ CREATE TABLE call_data (
 - Clone the repository:
   
 ```
-  git clone https://github.com/your-username/call-data-api.git
-  cd call-data-api
+  git clone https://github.com/abhishek09827/synthiq-trial.git
 ```
 - Install dependencies:
   ```
