@@ -58,3 +58,56 @@ CREATE TABLE call_data (
   SUPABASE_KEY=your-supabase-key
 
   ```
+## API Endpoints
+
+### 1. **Create a New Call**
+
+- **Endpoint**: `POST /api/calls`
+- **Description**: Adds a new call record to the database.
+
+**Request**:
+```bash
+curl -X POST http://localhost:3000/api/calls \
+-H "Content-Type: application/json" \
+-d '{
+  "caller": "John Doe",
+  "callee": "Jane Smith",
+  "call_duration": 450,  // Duration in seconds
+  "call_date": "2024-09-12T09:30:00.000Z"
+}'
+```
+**Response:**
+{
+  "id": 1,
+  "caller": "John Doe",
+  "callee": "Jane Smith",
+  "call_duration": 450,
+  "call_date": "2024-09-12T09:30:00.000Z"
+}
+### 2.**Get All Calls**
+Endpoint: GET /api/calls
+Description: Fetches all call records from the database.
+**Request:**
+```bash
+curl -X GET http://localhost:3000/api/calls
+```
+**Response:**
+```bash
+[
+  {
+    "id": 1,
+    "caller": "John Doe",
+    "callee": "Jane Smith",
+    "call_duration": 450,
+    "call_date": "2024-09-12T09:30:00.000Z"
+  },
+  {
+    "id": 2,
+    "caller": "Alice Johnson",
+    "callee": "Bob Brown",
+    "call_duration": 300,
+    "call_date": "2024-09-13T14:00:00.000Z"
+  }
+]
+
+```
