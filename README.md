@@ -77,6 +77,7 @@ curl -X POST http://localhost:3000/api/calls \
 }'
 ```
 **Response:**
+```bash
 {
   "id": 1,
   "caller": "John Doe",
@@ -87,6 +88,7 @@ curl -X POST http://localhost:3000/api/calls \
 ### 2.**Get All Calls**
 Endpoint: GET /api/calls
 Description: Fetches all call records from the database.
+```
 **Request:**
 ```bash
 curl -X GET http://localhost:3000/api/calls
@@ -111,3 +113,59 @@ curl -X GET http://localhost:3000/api/calls
 ]
 
 ```
+### 3. **Get Call by ID**
+- Endpoint: GET /api/calls/:id
+- Description: Fetches a specific call record by its ID.
+**Request:**
+  ```bash
+  curl -X GET http://localhost:3000/api/calls/1
+  ```
+**Response:**
+```bash
+{
+  "id": 1,
+  "caller": "John Doe",
+  "callee": "Jane Smith",
+  "call_duration": 450,
+  "call_date": "2024-09-12T09:30:00.000Z"
+}
+```
+### 4. **Update a Call by ID**
+- Endpoint: PUT /api/calls/:id
+- Description: Updates a specific call record by its ID.
+**Request:**
+  ```bash
+  curl -X PUT http://localhost:3000/api/calls/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+  "caller": "John Doe",
+  "callee": "Jane Smith",
+  "call_duration": 480,  // Updated duration in seconds
+  "call_date": "2024-09-12T10:00:00.000Z"
+  }'
+  ```
+**Response**
+```bash
+{
+  "id": 1,
+  "caller": "John Doe",
+  "callee": "Jane Smith",
+  "call_duration": 480,
+  "call_date": "2024-09-12T10:00:00.000Z"
+}
+
+```
+### 5. **Delete a Call by ID**
+- Endpoint: DELETE /api/calls/:id
+- Description: Deletes a specific call record by its ID.
+**Request:**
+  ```bash
+  curl -X DELETE http://localhost:3000/api/calls/1
+  ```
+**Response**
+```bash
+{
+  "message": "Call data deleted successfully."
+}
+```
+
