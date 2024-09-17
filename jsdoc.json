@@ -1,0 +1,12 @@
+{
+    "source": {
+      "include": ["src/controllers", "src/models", "src/routes", "src/config", "app.js"],
+      "includePattern": ".js$",
+      "excludePattern": "(node_modules/|docs)"
+    },
+    "opts": {
+      "destination": "./docs",
+      "recurse": true
+    }
+  }
+  
