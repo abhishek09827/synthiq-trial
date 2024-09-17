@@ -5,115 +5,30 @@
  * @module controllers/callController
  */
 
-import CallModel  from '../models/callModel.js';
-import {upsertCalls, calculateTotalMinutes, calculateCallCost, calculateAverageCallDuration} from '../services/callService.js';
+import CallService from '../services/callService.js';
 import axios from 'axios';
+import ExportUtils from '../utils/exportUtils.js';
 const CallController = {
-
-  /**
-   * Fetch all call records and return them in the response.
-   * 
-   * @param {Object} req - Express request object.
-   * @param {Object} res - Express response object.
-   * @param {Function} next - Express next middleware function.
-   * @returns {Promise<void>} Sends a JSON response with call data.
-   */
-  async getAllCalls(req, res, next) {
-    try {
-      const data = await CallModel.getAllCalls();
-      res.json(data);
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * Fetch a specific call record by ID and return it in the response.
-   * 
-   * @param {Object} req - Express request object.
-   * @param {Object} res - Express response object.
-   * @param {Function} next - Express next middleware function.
-   * @returns {Promise<void>} Sends a JSON response with the call data.
-   */
-  async getCallById(req, res, next) {
-    try {
-      const { id } = req.params;
-      const data = await CallModel.getCallById(id);
-      res.json(data);
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * Create a new call record and return the created data.
-   * 
-   * @param {Object} req - Express request object containing call data.
-   * @param {Object} res - Express response object.
-   * @param {Function} next - Express next middleware function.
-   * @returns {Promise<void>} Sends a JSON response with the newly created call record.
-   */
-  async createCall(req, res, next) {
-    try {
-      const callData = req.body;
-      
-      const data = await CallModel.createCall(callData);
-      res.status(201).json({"Success" : "Call Added Successfully !"});
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * Update an existing call record by ID and return the updated data.
-   * 
-   * @param {Object} req - Express request object containing updated data.
-   * @param {Object} res - Express response object.
-   * @param {Function} next - Express next middleware function.
-   * @returns {Promise<void>} Sends a JSON response with the updated call record.
-   */
-  async updateCall(req, res, next) {
-    try {
-      const { id } = req.params;
-      const callData = req.body;
-      const data = await CallModel.updateCall(id, callData);
-      res.status(201).json({"Success" : "Call Updated Successfully !"});
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * Delete a specific call record by ID and return a success message.
-   * 
-   * @param {Object} req - Express request object.
-   * @param {Object} res - Express response object.
-   * @param {Function} next - Express next middleware function.
-   * @returns {Promise<void>} Sends a JSON response with the success message.
-   */
-  async deleteCall(req, res, next) {
-    try {
-      const { id } = req.params;
-      await CallModel.deleteCall(id);
-      res.json({ message: 'Call data deleted successfully.' });
-    } catch (error) {
-      next(error);
-    }
-  },
 
 // Polling function to fetch calls and update in Supabase
 async fetchAndUpdateCalls(req, res) {
   try {
     // Fetch calls from external API
-    const response = await axios.get('https://api.vapi.ai/call?limit=20', {
+    let maxUpdatedAt = await CallService.maxUpdatedAt();
+    // Ensure maxUpdatedAt is a valid date string
+    if (isNaN(Date.parse(maxUpdatedAt))) {
+      maxUpdatedAt = new Date(0).toISOString(); // Default to epoch if invalid
+    }
+    
+    const response = await axios.get('https://api.vapi.ai/call', {
       headers: {
-        Authorization: `Bearer ${process.env.API_TOKEN}`
-      }
+      Authorization: `Bearer ${process.env.API_TOKEN}`
+      },
     });
     const calls = response.data;
-
+    const filteredCalls = calls.filter(call => call.created_at > maxUpdatedAt);
     // Pass calls to service for Supabase upsert operation
-    await upsertCalls(calls);
+    await CallService.upsertCalls(filteredCalls);
 
     res.status(200).json({ message: 'Calls fetched and updated successfully.' });
   } catch (error) {
@@ -121,24 +36,108 @@ async fetchAndUpdateCalls(req, res) {
     res.status(500).json({ error: 'Error fetching and updating calls' });
   }
 },
+
+//  Calculate analytics for calls
 async getAnalytics (req, res){
   try {
+    const calls = await CallService.getAllCalls();
     // Calculate Total Minutes, Call Cost, and Average Call Duration
-    const totalMinutes = await calculateTotalMinutes();
-    const totalCallCost = await calculateCallCost();
-    const averageCallDuration = await calculateAverageCallDuration();
+    const totalMinutes = await CallService.calculateTotalMinutes();
+    const totalCallCost = await CallService.calculateCallCost();
+    const averageCallDuration = await CallService.calculateAverageCallDuration();
+    const getCallVolumeTrends  = await CallService.calculateCallVolumeTrends(calls);
+    const getCallOutcomes  = await CallService.calculateCallOutcomeStatistics(calls);
+    const getPeakHour = await CallService.calculatePeakHourAnalysis(calls);
 
     // Return all the analytics in one response
     res.status(200).json({
       totalMinutes,
       totalCallCost,
-      averageCallDuration
+      averageCallDuration,
+      getCallVolumeTrends,
+      getCallOutcomes,
+      getPeakHour
     });
   } catch (error) {
     console.error('Error calculating analytics:', error);
     res.status(500).json({ error: 'Error calculating analytics' });
   }
-}
+},
+
+// Fetch call logs with filtering and sorting
+async getCallLogs(req, res) {
+  try {
+    const { startDate, endDate, type, status, sortBy, sortOrder } = req.query;
+
+    // Fetch filtered and sorted call logs
+    const callLogs = await CallService.fetchCallLogs({
+      startDate,
+      endDate,
+      type,
+      status,
+      sortBy,
+      sortOrder
+    });
+
+    res.status(200).json({ callLogs });
+  } catch (error) {
+    console.error('Error fetching call logs:', error);
+    res.status(500).json({ error: 'Error fetching call logs' });
+  }
+},
+
+// Export call logs to CSV
+async exportCallLogsCSV (req, res){
+  try {
+    const { startDate, endDate, type, status } = req.query;
+
+    // Fetch filtered call logs
+    const callLogs = await CallService.fetchCallLogs({
+      startDate,
+      endDate,
+      type,
+      status
+    });
+
+    // Export to CSV
+    const csv = ExportUtils.exportToCSV(callLogs);
+    
+    // Set response headers for CSV download
+    res.header('Content-Type', 'text/csv');
+    res.attachment('call_logs.csv');
+    return res.send(csv);
+  } catch (error) {
+    console.error('Error exporting call logs to CSV:', error);
+    res.status(500).json({ error: 'Error exporting call logs to CSV' });
+  }
+},
+
+// Export call logs to Excel
+async exportCallLogsExcel(req, res) {
+  try {
+    const { startDate, endDate, type, status } = req.query;
+
+    // Fetch filtered call logs
+    const callLogs = await CallService.fetchCallLogs({
+      startDate,
+      endDate,
+      type,
+      status
+    });
+
+    // Export to Excel
+    const buffer = await ExportUtils.exportToExcel(callLogs);
+    
+    // Set response headers for Excel download
+    res.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.attachment('call_logs.xlsx');
+    return res.send(buffer);
+  } catch (error) {
+    console.error('Error exporting call logs to Excel:', error);
+    res.status(500).json({ error: 'Error exporting call logs to Excel' });
+  }
+},
+
 };
 
 export default CallController;
