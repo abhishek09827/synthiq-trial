@@ -145,7 +145,7 @@ async fetchCallLogs(filters){
 
   // Apply date range filter
   if (startDate && endDate) {
-    query = query.gte('started_at', startDate).lte('ended_at', endDate);
+    query = query.gte('created_at', startDate).lte('ended_at', endDate);
   }
 
   // Apply type filter
