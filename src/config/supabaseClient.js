@@ -19,4 +19,4 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
-export default supabase;
+export { supabase };

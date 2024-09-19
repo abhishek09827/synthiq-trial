@@ -1,4 +1,4 @@
-import  supabase  from '../config/supabaseClient.js';
+import  {supabase}  from '../config/supabaseClient.js';
 const CallService = {
   // Service to upsert multiple calls
 async upsertCalls(calls) {
