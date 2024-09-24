@@ -3,19 +3,26 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
+  "jest": {
+    "transform": {
+      "^.+\\.jsx?$": "babel-jest"
+    }
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "node index.js",
+    "test": "jest"
   },
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@clerk/clerk-sdk-node": "^5.0.42",
     "@supabase/supabase-js": "^2.45.4",
     "axios": "^1.7.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",
-    "express": "^4.20.0",
+    "express": "^4.21.0",
     "express-rate-limit": "^7.4.0",
     "http": "^0.0.1-security",
     "jsdoc": "^4.0.3",
@@ -23,5 +30,12 @@
     "node-cron": "^3.0.3",
     "nodemon": "^3.1.4",
     "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.15.0",
+    "@babel/preset-env": "^7.25.4",
+    "babel-jest": "^27.5.1",
+    "jest": "^27.5.1",
+    "supertest": "^6.3.4"
   }
 }

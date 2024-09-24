@@ -6,16 +6,16 @@
  */
 
 import express from 'express';
-import callRoutes from './src/routes/callRoutes.js';
-import errorHandler  from './src/middlewares/errorhandler.js';
+import routes from './src/routes/routes.js';
+import errorHandler from './src/middlewares/errorhandler.js';
 import cors from 'cors';
 import schedulePollRoute from './src/middlewares/cronScheduler.js';
 import { limiter } from './src/middlewares/rateLimitter.js';
 import http from 'http';
 import { Server } from 'socket.io';
 import { supabase } from './src/config/supabaseClient.js';
-const app = express();
 
+const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -50,29 +50,10 @@ io.on('connection', (socket) => {
 });
 
 app.use(express.json());
-app.use(cors({
-    origin: '*'
-  }));
-
+app.use(cors({ origin: '*' }));
 app.use(schedulePollRoute);
 app.use(limiter);
-  
-/**
- * Use the call routes.
- */
-
-
-app.use('/api', callRoutes);
-
-
-/**
- * Global error handler middleware.
- * 
- * @param {Object} err - The error object.
- * @param {Object} req - The request object.
- * @param {Object} res - The response object.
- * @param {Function} next - The next middleware function.
- */
+app.use('/api', routes);
 app.use(errorHandler);
 
 export default server;

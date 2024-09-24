@@ -60,7 +60,7 @@ async getAnalytics (req, res){
     });
   } catch (error) {
     console.error('Error calculating analytics:', error);
-    res.status(500).json({ error: 'Error calculating analytics' });
+    res.status(500).json({ error: error.message });
   }
 },
 
