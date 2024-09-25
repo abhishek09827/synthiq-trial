@@ -1,12 +1,11 @@
 import { sendEmail } from '../services/emailService.js';
-import { alertTemplate } from '../templates/alertTemplate.js';
-import { reportTemplate } from '../templates/reportTemplate.js';
+import  EmailTemplates  from '../templates/emailTemplates.js';
 
 const EmailController = {
     // Trigger an alert notification email
  async sendAlertNotification(req, res) {
     const { email, name, alertMessage } = req.body;
-    const htmlContent = alertTemplate(name, alertMessage);
+    const htmlContent = EmailTemplates.alertTemplate(name, alertMessage);
     
     try {
       await sendEmail(email, 'Alert Notification', htmlContent);
@@ -19,7 +18,7 @@ const EmailController = {
   // Trigger a report notification email
 async sendReportNotification (req, res) {
     const { email, name, reportContent } = req.body;
-    const htmlContent = reportTemplate(name, reportContent);
+    const htmlContent = EmailTemplates.reportTemplate(name, reportContent);
     
     try {
       await sendEmail(email, 'Weekly Report', htmlContent);

@@ -29,6 +29,7 @@
     "json2csv": "^6.0.0-alpha.2",
     "node-cron": "^3.0.3",
     "nodemon": "^3.1.4",
+    "resend": "^4.0.0",
     "socket.io": "^4.7.5"
   },
   "devDependencies": {

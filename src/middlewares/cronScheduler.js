@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const schedulePollRoute = (req, res, next) => {
   // Schedule the /poll route to be called every hour
-cron.schedule('*/1 * * * *', async () => {
+cron.schedule('*/9 * * * *', async () => {
     try {
       await axios.get('http://localhost:3000/api/poll');
       console.log('Scheduled /poll route called successfully');
