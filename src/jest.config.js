@@ -4,5 +4,6 @@ export default {
       '^.+\\.js$': 'babel-jest',
     },
     moduleFileExtensions: ['js', 'json'],
+    setupFiles: ['<rootDir>/jest.setup.js']
   };
   

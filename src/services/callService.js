@@ -1,4 +1,5 @@
 import  {supabase}  from '../config/supabaseClient.js';
+import { triggerNotification } from './notificationService.js';
 // Define usage thresholds
 const USAGE_THRESHOLDS = {
   HIGH: process.env.USAGE_THRESHOLD_HIGH,
@@ -182,11 +183,12 @@ async fetchCallLogs(filters){
 // Monitor usage and trigger notifications
 async monitorUsage(user) {
   const { usage, limit, email } = user;
+  console.log(usage, limit, email);
   const usageRatio = usage / limit;
 
   if (usageRatio >= USAGE_THRESHOLDS.CRITICAL) {
     await triggerNotification(email, 'CRITICAL_USAGE', { usage, limit });
-  } else if (usageRatio >= USAGE_THRESHOLDS.HIGH) {
+  } if (usageRatio >= USAGE_THRESHOLDS.HIGH) {
     await triggerNotification(email, 'HIGH_USAGE', { usage, limit });
   }
 },
@@ -205,3 +207,4 @@ async monitorBudget(user) {
 
 };
 export default CallService;
+

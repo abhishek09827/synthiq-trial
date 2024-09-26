@@ -1,13 +1,17 @@
 // src/routes/__tests__/callRoutes.integration.test.js
 import request from 'supertest';
 import express from 'express';
-import callRoutes from '../callRoutes.js';
+import routes from "../../routes/routes.js"
 
 const app = express();
 app.use(express.json());
-app.use('/api', callRoutes);
+app.use('/api', routes);
 
 describe('Call Routes Integration Tests', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   test('GET /api/analytics should return analytics data', async () => {
     const response = await request(app).get('/api/analytics');
     expect(response.statusCode).toBe(200);
@@ -27,9 +31,18 @@ describe('Call Routes Integration Tests', () => {
     expect(response.body).toHaveProperty('callLogs');
     expect(Array.isArray(response.body.callLogs)).toBe(true);
   });
+
   test('GET /api/nonexistent should return 404 for non-existent route', async () => {
     const response = await request(app).get('/api/nonexistent');
     expect(response.statusCode).toBe(404);
+  });
+
+  test('GET /api/monitor should return monitoring data', async () => {
+    const response = await request(app).get('/api/monitor');
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual(expect.objectContaining({
+      email: expect.any(String)
+    }));
   });
 // Additional integration tests
 });

@@ -11,6 +11,8 @@ import AuthMiddleware from '../middlewares/authMiddlewares.js';
 import UserController from '../controllers/userController.js';
 import EmailController from '../controllers/emailController.js';
 import AuthController from '../controllers/authController.js';
+import CallService from '../services/callService.js';
+import UserService from '../services/userService.js';
 
 const router = Router();
 
@@ -57,7 +59,32 @@ router.delete('/admin/:id',
 // Send an alert notification
 router.post('/alert', EmailController.sendAlertNotification);
 
-// Send a report
+// Send trial report
 router.post('/report', EmailController.sendReportNotification);
 
+router.post('/monitor', async (req, res) => {
+    try {
+      const { email } = req.body;
+  
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+  
+      const user = await UserService.getUserByEmail(email);
+  
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+  
+    await CallService.monitorUsage(user);
+    await CallService.monitorBudget(user);
+  
+      res.status(200).json({ 
+        message: 'Monitoring completed successfully'
+      });
+    } catch (error) {
+      console.error('Error in monitoring:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
 export default router;

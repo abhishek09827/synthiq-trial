@@ -1,5 +1,5 @@
 import { shouldNotify } from './userPreferenceService.js';
-import { emailQueue } from '../queues/emailQueue.js';
+import { emailQueue } from '../utils/queue/emailQueue.js';
 
 const notificationTemplates = {
   HIGH_USAGE: (data) => ({
@@ -23,6 +23,12 @@ const notificationTemplates = {
 export const triggerNotification = async (email, event, data) => {
   if (await shouldNotify(email, event)) {
     const { subject, html } = notificationTemplates[event](data);
-    await emailQueue.add({ email, subject, html });
+    console.log(subject, html);
+    try {
+      await emailQueue.add('sendEmail', { email, subject, html });
+      console.log('Notification added to the queue successfully');
+    } catch (error) {
+      throw new Error('Failed to add notification to the queue');
+    }
   }
 };

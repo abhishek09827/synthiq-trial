@@ -3,6 +3,10 @@ import CallController from '../callController.js';
 import { jest } from '@jest/globals';
 
 describe('CallController', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   test('should return analytics data', async () => {
     const req = {};
     const res = {
@@ -41,6 +45,7 @@ describe('CallController', () => {
   });
 
   test('should fetch and update calls successfully', async () => {
+    jest.setTimeout(10000);
     const req = {};
     const res = {
       status: jest.fn().mockReturnThis(),

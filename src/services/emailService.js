@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-
+global.Headers = class Headers {};
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
@@ -13,13 +13,19 @@ export const sendEmail = async (to, subject, html) => {
         if (!html) {
           throw new Error("Email content (HTML) is missing");
         }
+        const domains = await resend.domains.list();
+        console.log(domains.data.data);
     
         const response = await resend.emails.send({
-          from: 'updates@synthiqcloud.com',  // Ensure this is a valid email or domain configured with Resend
+          from: process.env.SEND_MAIL_ID,  // Ensure this is a valid email or domain configured with Resend
           to,
           subject,
           html,
         });
+
+        if (response.error) {
+          throw new Error(response.error.message);
+        }
     
         console.log('Email sent successfully:', response);
         return response;
