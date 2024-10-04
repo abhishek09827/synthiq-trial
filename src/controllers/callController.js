@@ -14,6 +14,16 @@ const CallController = {
 async fetchAndUpdateCalls(req, res) {
   try {
     // Fetch calls from external API
+    const userId = req.auth.id;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    const { data: user, error } = await supabase.from('users').select('bearer_token').eq('id', userId).single();
+    if (error || !user || !user.token) {
+      return res.status(403).json({ error: 'Unauthorized: No token found for user' });
+    }
+
     let maxUpdatedAt = await CallService.maxUpdatedAt();
     // Ensure maxUpdatedAt is a valid date string
     if (isNaN(Date.parse(maxUpdatedAt))) {
@@ -22,11 +32,11 @@ async fetchAndUpdateCalls(req, res) {
     
     const response = await axios.get('https://api.vapi.ai/call', {
       headers: {
-      Authorization: `Bearer ${process.env.API_TOKEN}`
+        Authorization: `Bearer ${user.token}`
       },
     });
     const calls = response.data;
-    const filteredCalls = calls.filter(call => call.created_at > maxUpdatedAt);
+    const filteredCalls = calls.filter(call => call.created_at > maxUpdatedAt).map(call => ({ ...call, user_id: userId }));
     // Pass calls to service for Supabase upsert operation
     await CallService.upsertCalls(filteredCalls);
 
@@ -40,11 +50,16 @@ async fetchAndUpdateCalls(req, res) {
 //  Calculate analytics for calls
 async getAnalytics (req, res){
   try {
-    const calls = await CallService.getAllCalls();
+    const userId = req.auth.id;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    const calls = await CallService.getAllCalls(userId);
     // Calculate Total Minutes, Call Cost, and Average Call Duration
-    const totalMinutes = await CallService.calculateTotalMinutes();
-    const totalCallCost = await CallService.calculateCallCost();
-    const averageCallDuration = await CallService.calculateAverageCallDuration();
+    const totalMinutes = await CallService.calculateTotalMinutes(calls);
+    const totalCallCost = await CallService.calculateCallCost(calls);
+    const averageCallDuration = await CallService.calculateAverageCallDuration(calls);
     const getCallVolumeTrends  = await CallService.calculateCallVolumeTrends(calls);
     const getCallOutcomes  = await CallService.calculateCallOutcomeStatistics(calls);
     const getPeakHour = await CallService.calculatePeakHourAnalysis(calls);
@@ -90,9 +105,10 @@ async getCallLogs(req, res) {
 async exportCallLogsCSV (req, res){
   try {
     const { startDate, endDate, type, status } = req.query;
+    const userId = req.auth.id;
 
     // Fetch filtered call logs
-    const callLogs = await CallService.fetchCallLogs({
+    const callLogs = await CallService.fetchCallLogs(userId, {
       startDate,
       endDate,
       type,
@@ -115,10 +131,15 @@ async exportCallLogsCSV (req, res){
 // Export call logs to Excel
 async exportCallLogsExcel(req, res) {
   try {
+    const userId = req.auth.id;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
     const { startDate, endDate, type, status } = req.query;
 
     // Fetch filtered call logs
-    const callLogs = await CallService.fetchCallLogs({
+    const callLogs = await CallService.fetchCallLogs(userId, {
       startDate,
       endDate,
       type,

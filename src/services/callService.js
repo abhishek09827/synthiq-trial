@@ -1,5 +1,7 @@
 import  {supabase}  from '../config/supabaseClient.js';
 import { triggerNotification } from './notificationService.js';
+import { sendSlackNotification } from './slackService.js';
+
 // Define usage thresholds
 const USAGE_THRESHOLDS = {
   HIGH: process.env.USAGE_THRESHOLD_HIGH,
@@ -29,24 +31,17 @@ async maxUpdatedAt() {
     return maxUpdatedAtData[0].created_at;
 },
 
-async getAllCalls() {
-  const { data, error } = await supabase.from('calls').select('*');
+async getAllCalls(userId) {
+  const { data, error } = await supabase.from('calls').select('*').eq('user_id', userId);
   if (error) throw error;
   return data;
 },
 
-async calculateTotalMinutes() {
-    const { data, error } = await supabase
-      .from('calls') 
-      .select('started_at, ended_at');
-
-    if (error) {
-      throw new Error('Error fetching call data for total minutes');
-    }
+async calculateTotalMinutes(calls) {
 
     let totalMinutes = 0;
 
-    data.forEach(call => {
+    calls.forEach(call => {
       const startTime = new Date(call.started_at);
       const endTime = new Date(call.ended_at);
       const duration = (endTime - startTime) / 1000 / 60; // Convert milliseconds to minutes
@@ -57,18 +52,11 @@ async calculateTotalMinutes() {
   },
 
   // Calculate Total Call Cost
-async calculateCallCost() {
-    const { data, error } = await supabase
-      .from('calls')
-      .select('cost');
-
-    if (error) {
-      throw new Error('Error fetching call data for call cost');
-    }
+async calculateCallCost(calls) {
 
     let totalCost = 0;
 
-    data.forEach(call => {
+    calls.forEach(call => {
       totalCost += call.cost;
     });
 
@@ -76,18 +64,10 @@ async calculateCallCost() {
 },
 
   // Calculate Average Call Duration
-async calculateAverageCallDuration() {
-  const { data, error } = await supabase
-    .from('calls')
-    .select('started_at, ended_at');
-
-  if (error) {
-    throw new Error('Error fetching call data for average call duration');
-  }
-
+async calculateAverageCallDuration(calls) {
   let totalDuration = 0;
 
-  data.forEach(call => {
+  calls.forEach(call => {
     const startTime = new Date(call.started_at);
     const endTime = new Date(call.ended_at);
     const duration = (endTime - startTime) / 1000 / 60; // Convert milliseconds to minutes
@@ -142,12 +122,13 @@ async calculateCallOutcomeStatistics (calls) {
 },
 
 // Fetch call logs with filtering and sorting
-async fetchCallLogs(filters){
+async fetchCallLogs(userId, filters){
   const { startDate, endDate, type, status, sortBy, sortOrder } = filters;
 
   let query = supabase
     .from('calls')
-    .select('*');
+    .select('*')
+    .eq('user_id', userId);
 
   // Apply date range filter
   if (startDate && endDate) {
@@ -182,26 +163,41 @@ async fetchCallLogs(filters){
 
 // Monitor usage and trigger notifications
 async monitorUsage(user) {
-  const { usage, limit, email } = user;
-  console.log(usage, limit, email);
+  const { usage, limit, email, alertMethod, slackChannel } = user;
   const usageRatio = usage / limit;
 
   if (usageRatio >= USAGE_THRESHOLDS.CRITICAL) {
-    await triggerNotification(email, 'CRITICAL_USAGE', { usage, limit });
-  } if (usageRatio >= USAGE_THRESHOLDS.HIGH) {
-    await triggerNotification(email, 'HIGH_USAGE', { usage, limit });
+    if (alertMethod === 'mail') {
+      await triggerNotification(email, 'CRITICAL_USAGE', { usage, limit });
+    } else if (alertMethod === 'slack' && slackChannel) {
+      await sendSlackNotification(slackChannel, `Critical Usage Alert: Your usage (${usage}) has almost reached your limit (${limit})!`);
+    }
+  } else if (usageRatio >= USAGE_THRESHOLDS.HIGH) {
+    if (alertMethod === 'mail') {
+      await triggerNotification(email, 'HIGH_USAGE', { usage, limit });
+    } else if (alertMethod === 'slack' && slackChannel) {
+      await sendSlackNotification(slackChannel, `High Usage Alert: Your usage (${usage}) is approaching your limit (${limit}).`);
+    }
   }
 },
 
 // Monitor budget and trigger notifications
 async monitorBudget(user) {
-  const { spent, budget, email } = user;
+  const { spent, budget, email, alertMethod, slackChannel } = user;
   const budgetRatio = spent / budget;
 
   if (budgetRatio >= USAGE_THRESHOLDS.CRITICAL) {
-    await triggerNotification(email, 'CRITICAL_BUDGET', { spent, budget });
+    if (alertMethod === 'mail') {
+      await triggerNotification(email, 'CRITICAL_BUDGET', { spent, budget });
+    } else if (alertMethod === 'slack' && slackChannel) {
+      await sendSlackNotification(slackChannel, `Critical Budget Alert: Your spent amount (${spent}) has almost reached your budget (${budget})!`);
+    }
   } else if (budgetRatio >= USAGE_THRESHOLDS.HIGH) {
-    await triggerNotification(email, 'HIGH_BUDGET', { spent, budget });
+    if (alertMethod === 'mail') {
+      await triggerNotification(email, 'HIGH_BUDGET', { spent, budget });
+    } else if (alertMethod === 'slack' && slackChannel) {
+      await sendSlackNotification(slackChannel, `High Budget Alert: Your spent amount (${spent}) is approaching your budget (${budget}).`);
+    }
   }
 }
 

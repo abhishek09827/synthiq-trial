@@ -1,6 +1,6 @@
 /**
  * This file defines the routes for call analytics.
- * Each route is handled by the CallController.
+ * Each route is handled by the respective controller.
  * 
  * @module routes/callRoutes
  */
@@ -13,55 +13,124 @@ import EmailController from '../controllers/emailController.js';
 import AuthController from '../controllers/authController.js';
 import CallService from '../services/callService.js';
 import UserService from '../services/userService.js';
-
+import BillingController from '../controllers/billingController.js';
+import upload from '../middlewares/multerMiddleware.js';
 const router = Router();
 
-router.get('/poll', CallController.fetchAndUpdateCalls);
+/**
+ * @route GET /poll
+ * @description Fetch and update call data.
+ * @access Public
+ */
+router.get('/poll', AuthMiddleware.verifyClerkToken, CallController.fetchAndUpdateCalls);
 
-router.get('/analytics', CallController.getAnalytics);
+/**
+ * @route GET /analytics
+ * @description Retrieve call analytics data.
+ * @access Public
+ */
+router.get('/analytics',AuthMiddleware.verifyClerkToken, CallController.getAnalytics);
 
-// Fetch call logs with filtering and sorting
-router.get('/call-logs', CallController.getCallLogs);
+/**
+ * @route GET /call-logs
+ * @description Fetch call logs with filtering and sorting options.
+ * @access Public
+ */
+router.get('/call-logs',AuthMiddleware.verifyClerkToken, CallController.getCallLogs);
 
-// Export call logs to CSV
-router.get('/call-logs/export/csv', CallController.exportCallLogsCSV);
+/**
+ * @route GET /call-logs/export/csv
+ * @description Export call logs to a CSV file.
+ * @access Public
+ */
+router.get('/call-logs/export/csv',AuthMiddleware.verifyClerkToken, CallController.exportCallLogsCSV);
 
-// Export call logs to Excel
-router.get('/call-logs/export/excel', CallController.exportCallLogsExcel);
+/**
+ * @route GET /call-logs/export/excel
+ * @description Export call logs to an Excel file.
+ * @access Public
+ */
+router.get('/call-logs/export/excel',AuthMiddleware.verifyClerkToken,  CallController.exportCallLogsExcel);
 
-// Login
+/**
+ * @route POST /login
+ * @description Login user.
+ * @access Protected
+ */
 router.post('/login', 
     AuthMiddleware.verifyClerkToken, 
     AuthController.clerkLogin
 );
 
-// Fetch all users - Admin Only
-router.get('/admin', 
+/**
+ * @route GET /admin
+ * @description Fetch all users - Admin Only.
+ * @access Protected
+ */
+router.get('/super-admin', 
     AuthMiddleware.verifyClerkToken, 
-    AuthMiddleware.authorizeRoles('Admin'), 
+    AuthMiddleware.checkRole('Super Admin'), 
     UserController.getUsers
 );
-
-// Update user role - Admin Only
-router.put('/admin/:id/role', 
+/**
+ * @route POST /agency
+ * @description Create a new agency.
+ * @access Protected
+ */
+router.post('/super-admin/create-agency', 
     AuthMiddleware.verifyClerkToken, 
-    AuthMiddleware.authorizeRoles('Admin'), 
-    UserController.updateUserRole
+    AuthMiddleware.checkRole('Super Admin'), 
+    UserController.createAgency
 );
 
-// Delete user - Admin Only
-router.delete('/admin/:id', 
+
+/**
+ * @route PUT /admin/:id/role
+ * @description Update user role - Admin Only.
+ * @access Protected
+ */
+router.put('/super-admin/:id/role', 
     AuthMiddleware.verifyClerkToken, 
-    AuthMiddleware.authorizeRoles('Admin'), 
+    AuthMiddleware.checkRole('Super Admin'), 
+    UserController.updateUserRoleAndPermissions
+);
+
+/**
+ * @route DELETE /admin/:id
+ * @description Delete user - Admin Only.
+ * @access Protected
+ */
+router.delete('/super-admin/:id', 
+    AuthMiddleware.verifyClerkToken, 
+    AuthMiddleware.checkRole('Super Admin'), 
     UserController.deleteUser
 );
 
-// Send an alert notification
+router.post('/super-admin/add-user', 
+    AuthMiddleware.verifyClerkToken, 
+    AuthMiddleware.checkRole('Super Admin'), 
+    UserController.addUser
+);
+
+/**
+ * @route POST /alert
+ * @description Send an alert notification email.
+ * @access Public
+ */
 router.post('/alert', EmailController.sendAlertNotification);
 
-// Send trial report
+/**
+ * @route POST /report
+ * @description Send a trial report email.
+ * @access Public
+ */
 router.post('/report', EmailController.sendReportNotification);
 
+/**
+ * @route POST /monitor
+ * @description Monitor user usage and budget.
+ * @access Public
+ */
 router.post('/monitor', async (req, res) => {
     try {
       const { email } = req.body;
@@ -76,8 +145,8 @@ router.post('/monitor', async (req, res) => {
         return res.status(404).json({ error: 'User not found' });
       }
   
-    await CallService.monitorUsage(user);
-    await CallService.monitorBudget(user);
+      await CallService.monitorUsage(user);
+      await CallService.monitorBudget(user);
   
       res.status(200).json({ 
         message: 'Monitoring completed successfully'
@@ -86,5 +155,45 @@ router.post('/monitor', async (req, res) => {
       console.error('Error in monitoring:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
-  });
+});
+
+router.put('/branding/:user_id', upload.fields([{ name: 'logo' }, { name: 'favicon' }]), UserController.updateBranding);
+router.get('/branding/:user_id', UserController.getBranding);
+
+// Create a Stripe customer
+router.post('/create-customer', BillingController.createCustomer);
+
+// Only Admins can access this route
+router.get('/admin-data', AuthMiddleware.verifyClerkToken, AuthMiddleware.checkRole('Admin'), (req, res) => {
+  res.send('This is admin data');
+});
+
+// Both Admins and Agency Owners can access this route
+router.get('/agency-data', AuthMiddleware.verifyClerkToken, AuthMiddleware.checkMultipleRoles(['Admin', 'Agency Owner']), (req, res) => {
+  res.send('This is agency data');
+});
+
+// Users, Admins, and Agency Owners can access this route
+router.get('/user-data', AuthMiddleware.verifyClerkToken, AuthMiddleware.checkMultipleRoles(['User', 'Admin', 'Agency Owner']), (req, res) => {
+  res.send('This is user data');
+});
+
+// Only Super Admins can update permissions
+router.put('/update-permissions', AuthMiddleware.verifyClerkToken, UserController.updateUserRoleAndPermissions);
+
+// Only admins with permission can manage billing
+router.get('/billing', AuthMiddleware.verifyClerkToken, AuthMiddleware.checkPermission('manageBilling'), (req, res) => {
+  res.send('Billing management');
+});
+
+// View analytics
+router.get('/analytics', AuthMiddleware.verifyClerkToken, AuthMiddleware.checkPermission('viewAnalytics'), (req, res) => {
+  res.send('Viewing analytics');
+});
+// Add user to agency (Agency Owner only)
+router.post('/add-user-to-agency', AuthMiddleware.verifyClerkToken, AuthMiddleware.checkRole('Agency Owner'), UserController.addUserToAgency);
+router.put('/update-billing-features', AuthMiddleware.verifyClerkToken, UserController.updateBillingFeatures);
+
+
+
 export default router;
