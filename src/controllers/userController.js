@@ -45,6 +45,7 @@ const UserController = {
             res.status(500).json({ message: 'Failed to add user', error: error.message });
         }
     },
+    
     // Create a new agency (Super Admin only)
     async createAgency(req, res) {
         const { agencyName, ownerId } = req.body;

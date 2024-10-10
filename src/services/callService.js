@@ -10,9 +10,13 @@ const USAGE_THRESHOLDS = {
 const CallService = {
   // Service to upsert multiple calls
 async upsertCalls(calls) {
-      await supabase
+      const { data, error } = await supabase
         .from('calls')
         .insert(calls);
+      if (error) {
+        console.error('Error inserting calls:', error);
+        throw new Error('Failed to upsert calls');
+      }
 },
 
 async maxUpdatedAt() {
@@ -28,6 +32,13 @@ async maxUpdatedAt() {
       console.error('Error fetching max updated_at:', maxUpdatedAtError);
       return;
     }
+
+    // Check if the table is empty
+    if (maxUpdatedAtData.length === 0) {
+      console.warn('No calls found in the table.');
+      return null; // or return a default value if needed
+    }
+
     return maxUpdatedAtData[0].created_at;
 },
 
@@ -42,8 +53,8 @@ async calculateTotalMinutes(calls) {
     let totalMinutes = 0;
 
     calls.forEach(call => {
-      const startTime = new Date(call.started_at);
-      const endTime = new Date(call.ended_at);
+      const startTime = new Date(call.startedat);
+      const endTime = new Date(call.endedat);
       const duration = (endTime - startTime) / 1000 / 60; // Convert milliseconds to minutes
       totalMinutes += duration;
     });
@@ -68,13 +79,13 @@ async calculateAverageCallDuration(calls) {
   let totalDuration = 0;
 
   calls.forEach(call => {
-    const startTime = new Date(call.started_at);
-    const endTime = new Date(call.ended_at);
+    const startTime = new Date(call.startedat);
+    const endTime = new Date(call.endedat);
     const duration = (endTime - startTime) / 1000 / 60; // Convert milliseconds to minutes
     totalDuration += duration;
   });
 
-  const averageDuration = totalDuration / data.length;
+  const averageDuration = totalDuration / calls.length;
   return averageDuration.toFixed(2);
 },
 
@@ -82,7 +93,7 @@ async calculateAverageCallDuration(calls) {
 async calculateCallVolumeTrends (calls) {
   const trends = {};
   calls.forEach((call) => {
-    const date = new Date(call.created_at).toISOString().split('T')[0];
+    const date = new Date(call.createdat).toISOString().split('T')[0];
     if (!trends[date]) {
       trends[date] = 0;
     }
@@ -95,7 +106,7 @@ async calculateCallVolumeTrends (calls) {
 async calculatePeakHourAnalysis (calls) {
   const hourCounts = {};
   calls.forEach((call) => {
-    const hour = new Date(call.started_at).getUTCHours();
+    const hour = new Date(call.startedat).getUTCHours();
     if (!hourCounts[hour]) {
       hourCounts[hour] = 0;
     }
@@ -112,7 +123,7 @@ async calculatePeakHourAnalysis (calls) {
 async calculateCallOutcomeStatistics (calls) {
   const outcomes = {};
   calls.forEach((call) => {
-    const reason = call.ended_reason;
+    const reason = call.endedreason;
     if (!outcomes[reason]) {
       outcomes[reason] = 0;
     }
@@ -123,7 +134,7 @@ async calculateCallOutcomeStatistics (calls) {
 
 // Fetch call logs with filtering and sorting
 async fetchCallLogs(userId, filters){
-  const { startDate, endDate, type, status, sortBy, sortOrder } = filters;
+  const { startDate, endDate, type, sortBy, sortOrder, endedreason } = filters || {};
 
   let query = supabase
     .from('calls')
@@ -132,19 +143,17 @@ async fetchCallLogs(userId, filters){
 
   // Apply date range filter
   if (startDate && endDate) {
-    query = query.gte('created_at', startDate).lte('ended_at', endDate);
+    query = query.gte('startedat', startDate).lte('endedat', endDate);
+  }
+
+  if (endedreason) {
+    query = query.eq('endedreason', endedreason)
   }
 
   // Apply type filter
   if (type) {
     query = query.eq('type', type);
   }
-
-  // Apply status filter
-  if (status) {
-    query = query.eq('status', status);
-  }
-
   // Apply sorting
   if (sortBy) {
     const order = sortOrder === 'desc' ? 'desc' : 'asc'; // Default to ascending order

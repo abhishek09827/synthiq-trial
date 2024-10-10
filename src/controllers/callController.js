@@ -7,6 +7,7 @@
 
 import CallService from '../services/callService.js';
 import axios from 'axios';
+import { supabase } from '../config/supabaseClient.js';
 import ExportUtils from '../utils/exportUtils.js';
 const CallController = {
 
@@ -20,23 +21,55 @@ async fetchAndUpdateCalls(req, res) {
     }
 
     const { data: user, error } = await supabase.from('users').select('bearer_token').eq('id', userId).single();
-    if (error || !user || !user.token) {
+    if (error || !user || !user.bearer_token) {
       return res.status(403).json({ error: 'Unauthorized: No token found for user' });
     }
-
-    let maxUpdatedAt = await CallService.maxUpdatedAt();
-    // Ensure maxUpdatedAt is a valid date string
-    if (isNaN(Date.parse(maxUpdatedAt))) {
-      maxUpdatedAt = new Date(0).toISOString(); // Default to epoch if invalid
-    }
-    
     const response = await axios.get('https://api.vapi.ai/call', {
       headers: {
-        Authorization: `Bearer ${user.token}`
+        Authorization: `Bearer ${user.bearer_token}`
       },
     });
     const calls = response.data;
-    const filteredCalls = calls.filter(call => call.created_at > maxUpdatedAt).map(call => ({ ...call, user_id: userId }));
+    let maxUpdatedAt = await CallService.maxUpdatedAt();
+    let filteredCalls;
+
+    if (maxUpdatedAt && !isNaN(Date.parse(maxUpdatedAt))) {
+      filteredCalls = calls.filter(call => call.created_at > maxUpdatedAt).map(call => ({
+        id: call.id,
+        phoneNumberId: call.phoneNumberId,
+        type: call.type,
+        startedAt: call.startedAt,
+        endedAt: call.endedAt,
+        transcript: call.transcript,
+        recordingUrl: call.recordingUrl,
+        summary: call.summary,
+        createdAt: call.createdAt,
+        updatedAt: call.updatedAt,
+        cost: call.cost,
+        endedReason: call.endedReason,
+        user_id: userId,
+        costBreakdown: call.costBreakdown,
+        costs: call.costs
+      }));
+    } else {
+      filteredCalls = calls.map(call => ({
+        id: call.id,
+        phonenumberid: call.phoneNumberId,
+        type: call.type,
+        startedat: call.startedAt,
+        endedat: call.endedAt,
+        transcript: call.transcript,
+        recordingurl: call.recordingUrl,
+        summary: call.summary,
+        createdat: call.createdAt,
+        updatedat: call.updatedAt,
+        cost: call.cost,
+        endedreason: call.endedReason,
+        user_id: userId,
+        costbreakdown: call.costBreakdown,
+        costs: call.costs
+      }));
+    }
     // Pass calls to service for Supabase upsert operation
     await CallService.upsertCalls(filteredCalls);
 
@@ -82,16 +115,16 @@ async getAnalytics (req, res){
 // Fetch call logs with filtering and sorting
 async getCallLogs(req, res) {
   try {
-    const { startDate, endDate, type, status, sortBy, sortOrder } = req.query;
+    const { startDate, endDate, type, sortBy, sortOrder, endedreason } = req.query;
 
     // Fetch filtered and sorted call logs
-    const callLogs = await CallService.fetchCallLogs({
+    const callLogs = await CallService.fetchCallLogs(req.auth.id,{
       startDate,
       endDate,
       type,
-      status,
       sortBy,
-      sortOrder
+      sortOrder,
+      endedreason
     });
 
     res.status(200).json({ callLogs });
@@ -104,7 +137,7 @@ async getCallLogs(req, res) {
 // Export call logs to CSV
 async exportCallLogsCSV (req, res){
   try {
-    const { startDate, endDate, type, status } = req.query;
+    const { startDate, endDate, type, endedreason } = req.query;
     const userId = req.auth.id;
 
     // Fetch filtered call logs
@@ -112,7 +145,7 @@ async exportCallLogsCSV (req, res){
       startDate,
       endDate,
       type,
-      status
+      endedreason
     });
 
     // Export to CSV
@@ -136,14 +169,14 @@ async exportCallLogsExcel(req, res) {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    const { startDate, endDate, type, status } = req.query;
+    const { startDate, endDate, type, endedreason } = req.query;
 
     // Fetch filtered call logs
     const callLogs = await CallService.fetchCallLogs(userId, {
       startDate,
       endDate,
       type,
-      status
+      endedreason
     });
 
     // Export to Excel
