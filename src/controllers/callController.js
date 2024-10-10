@@ -30,31 +30,41 @@ async fetchAndUpdateCalls(req, res) {
       },
     });
     const calls = response.data;
-    let maxUpdatedAt = await CallService.maxUpdatedAt();
+    let maxUpdatedAt = await CallService.maxUpdatedAt(req.auth.id);
     let filteredCalls;
+    console.log(maxUpdatedAt);
 
     if (maxUpdatedAt && !isNaN(Date.parse(maxUpdatedAt))) {
-      filteredCalls = calls.filter(call => call.created_at > maxUpdatedAt).map(call => ({
-        id: call.id,
-        phoneNumberId: call.phoneNumberId,
-        type: call.type,
-        startedAt: call.startedAt,
-        endedAt: call.endedAt,
-        transcript: call.transcript,
-        recordingUrl: call.recordingUrl,
-        summary: call.summary,
-        createdAt: call.createdAt,
-        updatedAt: call.updatedAt,
-        cost: call.cost,
-        endedReason: call.endedReason,
-        user_id: userId,
-        costBreakdown: call.costBreakdown,
-        costs: call.costs
-      }));
+      // Compare the first call's endedAt with maxUpdatedAt
+      const firstCallEndedAt = new Date(calls[0].endedAt);
+      const maxUpdatedAtDate = new Date(maxUpdatedAt);
+      if (firstCallEndedAt > maxUpdatedAtDate) {
+        filteredCalls = calls.filter(call => call.endedAt > maxUpdatedAt).map(call => ({
+          id: call.id,
+          phoneNumberid: call.phoneNumberId,
+          type: call.type,
+          startedat: call.startedAt,
+          endedat: call.endedAt,
+          transcript: call.transcript,
+          recordingurl: call.recordingUrl,
+          summary: call.summary,
+          createdat: call.createdAt,
+          updatedat: call.updatedAt,
+          cost: call.cost,
+          endedreason: call.endedReason,
+          user_id: userId,
+          costbreakdown: call.costBreakdown,
+          costs: call.costs,
+          assistantid: call.assistantId
+        }));
+      } else {
+        // If maxUpdatedAt is after the first call's endedAt, do not upsert
+        return res.status(200).json({ message: 'No new calls to update.' });
+      }
     } else {
       filteredCalls = calls.map(call => ({
         id: call.id,
-        phonenumberid: call.phoneNumberId,
+        phoneNumberid: call.phoneNumberId,
         type: call.type,
         startedat: call.startedAt,
         endedat: call.endedAt,
@@ -67,7 +77,8 @@ async fetchAndUpdateCalls(req, res) {
         endedreason: call.endedReason,
         user_id: userId,
         costbreakdown: call.costBreakdown,
-        costs: call.costs
+        costs: call.costs,
+        assistantid: call.assistantId
       }));
     }
     // Pass calls to service for Supabase upsert operation

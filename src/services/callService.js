@@ -19,27 +19,28 @@ async upsertCalls(calls) {
       }
 },
 
-async maxUpdatedAt() {
+async maxUpdatedAt(id) {
     
     // Fetch the maximum updated_at timestamp from the existing calls
     const { data: maxUpdatedAtData, error: maxUpdatedAtError } = await supabase
-      .from('calls')
-      .select('created_at')
-      .order('created_at', { ascending: false })
-      .limit(1);
+      .from('users')
+      .select('updatedat')
+      .eq("id", id)
 
     if (maxUpdatedAtError) {
       console.error('Error fetching max updated_at:', maxUpdatedAtError);
       return;
     }
 
-    // Check if the table is empty
-    if (maxUpdatedAtData.length === 0) {
-      console.warn('No calls found in the table.');
-      return null; // or return a default value if needed
+    if (!maxUpdatedAtData[0].updatedat) {
+      const maxUpdatedAt = new Date().toISOString();
+      await supabase
+        .from('calls')
+        .update({ updatedat: maxUpdatedAt });
+        return maxUpdatedAt;
     }
 
-    return maxUpdatedAtData[0].created_at;
+    return maxUpdatedAtData[0].updatedat;
 },
 
 async getAllCalls(userId) {
