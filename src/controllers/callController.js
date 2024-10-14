@@ -20,8 +20,11 @@ async fetchAndUpdateCalls(req, res) {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    const { data: user, error } = await supabase.from('users').select('bearer_token').eq('id', userId).single();
-    if (error || !user || !user.bearer_token) {
+    const { data: user, error: userError } = await supabase.from('users').select('bearer_token').eq('id', userId).single();
+    if (userError) {
+      return res.status(500).json({ error: 'Error fetching user token', details: userError.message });
+    }
+    if (!user || !user.bearer_token) {
       return res.status(403).json({ error: 'Unauthorized: No token found for user' });
     }
     const response = await axios.get('https://api.vapi.ai/call', {
@@ -41,7 +44,7 @@ async fetchAndUpdateCalls(req, res) {
       if (firstCallEndedAt > maxUpdatedAtDate) {
         filteredCalls = calls.filter(call => call.endedAt > maxUpdatedAt).map(call => ({
           id: call.id,
-          phoneNumberid: call.phoneNumberId,
+          phonenumberid: call.phoneNumberId,
           type: call.type,
           startedat: call.startedAt,
           endedat: call.endedAt,
@@ -64,7 +67,7 @@ async fetchAndUpdateCalls(req, res) {
     } else {
       filteredCalls = calls.map(call => ({
         id: call.id,
-        phoneNumberid: call.phoneNumberId,
+        phonenumberid: call.phoneNumberId,
         type: call.type,
         startedat: call.startedAt,
         endedat: call.endedAt,
@@ -87,7 +90,11 @@ async fetchAndUpdateCalls(req, res) {
     res.status(200).json({ message: 'Calls fetched and updated successfully.' });
   } catch (error) {
     console.error('Error fetching and updating calls:', error);
-    res.status(500).json({ error: 'Error fetching and updating calls' });
+    if (error.response && error.response.data) {
+      return res.status(500).json({ error: 'Error fetching and updating calls', details: error.response.data.message });
+    } else {
+      return res.status(500).json({ error: 'Error fetching and updating calls', details: error.message });
+    }
   }
 },
 

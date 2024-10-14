@@ -22,35 +22,35 @@ const router = Router();
  * @description Fetch and update call data.
  * @access Public
  */
-router.get('/poll', AuthMiddleware.verifyClerkToken, CallController.fetchAndUpdateCalls);
+router.post('/poll', AuthMiddleware.verifyClerkToken, CallController.fetchAndUpdateCalls);
 
 /**
  * @route GET /analytics
  * @description Retrieve call analytics data.
  * @access Public
  */
-router.get('/analytics',AuthMiddleware.verifyClerkToken, CallController.getAnalytics);
+router.post('/analytics',AuthMiddleware.verifyClerkToken, CallController.getAnalytics);
 
 /**
  * @route GET /call-logs
  * @description Fetch call logs with filtering and sorting options.
  * @access Public
  */
-router.get('/call-logs',AuthMiddleware.verifyClerkToken, CallController.getCallLogs);
+router.post('/call-logs',AuthMiddleware.verifyClerkToken, CallController.getCallLogs);
 
 /**
  * @route GET /call-logs/export/csv
  * @description Export call logs to a CSV file.
  * @access Public
  */
-router.get('/call-logs/export/csv',AuthMiddleware.verifyClerkToken, CallController.exportCallLogsCSV);
+router.post('/call-logs/export/csv',AuthMiddleware.verifyClerkToken, CallController.exportCallLogsCSV);
 
 /**
  * @route GET /call-logs/export/excel
  * @description Export call logs to an Excel file.
  * @access Public
  */
-router.get('/call-logs/export/excel',AuthMiddleware.verifyClerkToken,  CallController.exportCallLogsExcel);
+router.post('/call-logs/export/excel',AuthMiddleware.verifyClerkToken,  CallController.exportCallLogsExcel);
 
 /**
  * @route POST /login
@@ -67,7 +67,7 @@ router.post('/login',
  * @description Fetch all users - Admin Only.
  * @access Protected
  */
-router.get('/super-admin', 
+router.post('/super-admin', 
     AuthMiddleware.verifyClerkToken, 
     AuthMiddleware.checkRole('Super Admin'), 
     UserController.getUsers
@@ -89,7 +89,7 @@ router.post('/super-admin/create-agency',
  * @description Update user role - Admin Only.
  * @access Protected
  */
-router.put('/super-admin/:id/role', 
+router.put('/super-admin/role', 
     AuthMiddleware.verifyClerkToken, 
     AuthMiddleware.checkRole('Super Admin'), 
     UserController.updateUserRoleAndPermissions

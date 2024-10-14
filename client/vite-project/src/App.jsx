@@ -20,7 +20,7 @@ const AuthContent = () => {
     const token = await getToken();
     const id = user.id
     
-    axios.post('http://localhost:3000/api/login', { token, id })
+    axios.post('http://localhost:3000/api/call-logs', { id })
       .then(response => console.log(response.data))
       .catch(error => console.error(error));
   };

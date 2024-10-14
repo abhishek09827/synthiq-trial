@@ -10,11 +10,16 @@ const USAGE_THRESHOLDS = {
 const CallService = {
   // Service to upsert multiple calls
 async upsertCalls(calls) {
-      const { data, error } = await supabase
-        .from('calls')
-        .insert(calls);
-      if (error) {
-        console.error('Error inserting calls:', error);
+      try {
+        const { data, error } = await supabase
+          .from('calls')
+          .insert(calls);
+        if (error) {
+          console.error('Error inserting calls:', error);
+          throw new Error('Failed to upsert calls');
+        }
+      } catch (error) {
+        console.error('Error upserting calls:', error);
         throw new Error('Failed to upsert calls');
       }
 },
@@ -22,31 +27,46 @@ async upsertCalls(calls) {
 async maxUpdatedAt(id) {
     
     // Fetch the maximum updated_at timestamp from the existing calls
-    const { data: maxUpdatedAtData, error: maxUpdatedAtError } = await supabase
-      .from('users')
-      .select('updatedat')
-      .eq("id", id)
+    try {
+      const { data: maxUpdatedAtData, error: maxUpdatedAtError } = await supabase
+        .from('users')
+        .select('updatedat')
+        .eq("id", id)
 
-    if (maxUpdatedAtError) {
-      console.error('Error fetching max updated_at:', maxUpdatedAtError);
-      return;
+      if (maxUpdatedAtError) {
+        console.error('Error fetching max updated_at:', maxUpdatedAtError);
+        throw new Error('Failed to fetch max updated_at');
+      }
+
+      if (!maxUpdatedAtData[0].updatedat) {
+        const maxUpdatedAt = new Date().toISOString();
+        try {
+          await supabase
+            .from('users')
+            .update({ updatedat: maxUpdatedAt })
+            .eq("id", id)
+        } catch (error) {
+          console.error('Error updating max updated_at:', error);
+          throw new Error('Failed to update max updated_at');
+        }
+      }
+
+      return maxUpdatedAtData[0].updatedat;
+    } catch (error) {
+      console.error('Error fetching max updated_at:', error);
+      throw new Error('Failed to fetch max updated_at');
     }
-
-    if (!maxUpdatedAtData[0].updatedat) {
-      const maxUpdatedAt = new Date().toISOString();
-      await supabase
-        .from('calls')
-        .update({ updatedat: maxUpdatedAt });
-        return maxUpdatedAt;
-    }
-
-    return maxUpdatedAtData[0].updatedat;
 },
 
 async getAllCalls(userId) {
-  const { data, error } = await supabase.from('calls').select('*').eq('user_id', userId);
-  if (error) throw error;
-  return data;
+  try {
+    const { data, error } = await supabase.from('calls').select('*').eq('user_id', userId);
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching all calls:', error);
+    throw new Error('Failed to fetch all calls');
+  }
 },
 
 async calculateTotalMinutes(calls) {
@@ -135,39 +155,45 @@ async calculateCallOutcomeStatistics (calls) {
 
 // Fetch call logs with filtering and sorting
 async fetchCallLogs(userId, filters){
-  const { startDate, endDate, type, sortBy, sortOrder, endedreason } = filters || {};
+  try {
+    const { startDate, endDate, type, sortBy, sortOrder, endedreason } = filters || {};
 
-  let query = supabase
-    .from('calls')
-    .select('*')
-    .eq('user_id', userId);
+    let query = supabase
+      .from('calls')
+      .select('*')
+      .eq('user_id', userId);
 
-  // Apply date range filter
-  if (startDate && endDate) {
-    query = query.gte('startedat', startDate).lte('endedat', endDate);
+    // Apply date range filter
+    if (startDate && endDate) {
+      query = query.gte('startedat', startDate).lte('endedat', endDate);
+    }
+
+    if (endedreason) {
+      query = query.eq('endedreason', endedreason)
+    }
+
+    // Apply type filter
+    if (type) {
+      query = query.eq('type', type);
+    }
+    // Apply sorting
+    if (sortBy) {
+      const order = sortOrder === 'desc' ? 'desc' : 'asc'; // Default to ascending order
+      query = query.order(sortBy, { ascending: order === 'asc' });
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching call logs:', error);
+      throw new Error('Failed to fetch call logs');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error fetching call logs:', error);
+    throw new Error('Failed to fetch call logs');
   }
-
-  if (endedreason) {
-    query = query.eq('endedreason', endedreason)
-  }
-
-  // Apply type filter
-  if (type) {
-    query = query.eq('type', type);
-  }
-  // Apply sorting
-  if (sortBy) {
-    const order = sortOrder === 'desc' ? 'desc' : 'asc'; // Default to ascending order
-    query = query.order(sortBy, { ascending: order === 'asc' });
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw new Error('Error fetching call logs');
-  }
-
-  return data;
 },
 
 

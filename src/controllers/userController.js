@@ -4,7 +4,7 @@ import clerk from "../config/clerkClient.js";
 const UserController = {
     // Get all users (Super Admin only)
     async addUser(req, res) {
-        const { email, fullName, role, bearerToken } = req.body;
+        const { email, firstName,lastName, role, bearerToken, password } = req.body;
 
         try {
             // Ensure the user making the request is a Super Admin or Agency Owner
@@ -15,13 +15,18 @@ const UserController = {
             // Create a new user in Clerk
             const newUser = await clerk.users.createUser({
                 emailAddress: [email],
-                firstName: fullName.split(' ')[0],
-                lastName: fullName.split(' ')[1],
+                firstName: firstName,
+                lastName: lastName,
                 publicMetadata: { 
                     role, 
                     agencyId: req.auth.publicMetadata.role === 'AgencyOwner' ? req.auth.publicMetadata.agencyId : undefined 
-                }
+                },
+                password: password
             });
+
+            if (!newUser) {
+                throw new Error('Failed to create user in Clerk');
+            }
 
             // Insert the new user into Supabase
             const { data, error } = await supabase
@@ -29,7 +34,7 @@ const UserController = {
                 .insert([{ 
                     id: newUser.id, 
                     email, 
-                    full_name: fullName, 
+                    full_name: `${firstName} ${lastName}`, 
                     role, 
                     bearer_token: bearerToken, 
                     agency_id: req.auth.publicMetadata.role === 'AgencyOwner' ? req.auth.publicMetadata.agencyId : null 
@@ -37,15 +42,15 @@ const UserController = {
                 .single();
 
             if (error) {
-                return res.status(500).json({ error: 'Failed to create user in Supabase' });
+                throw new Error(`Failed to create user in Supabase: ${error.message}`);
             }
 
-            res.status(201).json({ message: 'User added successfully', user: data });
+            res.status(201).json({ message: 'User added successfully' });
         } catch (error) {
+            console.error('Error adding user:', error);
             res.status(500).json({ message: 'Failed to add user', error: error.message });
         }
     },
-    
     // Create a new agency (Super Admin only)
     async createAgency(req, res) {
         const { agencyName, ownerId } = req.body;
@@ -126,14 +131,14 @@ const UserController = {
       try {
         // Ensure the user making the request is a Super Admin or Agency Owner
         if (!['Super Admin', 'Agency Owner'].includes(req.auth.publicMetadata.role)) {
-          return res.status(403).json({ message: 'Access Denied' });
+          return res.status(403).json({ message: 'Access Denied: Only Super Admins and Agency Owners can update user roles and permissions.' });
         }
 
         // Ensure the target user is part of the same agency if the requester is an Agency Owner
         if (req.auth.publicMetadata.role === 'Agency Owner') {
-          const { data: targetUser, error } = await supabase.from('users').select('agency_id').eq('id', userId).single();
-          if (error) {
-            return res.status(500).json({ error: 'Failed to fetch target user agencyId' });
+          const { data: targetUser, error: targetUserError } = await supabase.from('users').select('agency_id').eq('id', userId).single();
+          if (targetUserError) {
+            return res.status(500).json({ error: 'Failed to fetch target user agencyId', details: targetUserError.message });
           }
           if (targetUser.agency_id !== req.auth.publicMetadata.agencyId) {
             return res.status(403).json({ message: 'Access Denied: You can only manage users in your own agency.' });
@@ -141,7 +146,9 @@ const UserController = {
         }
 
         // Get the current user data
-        const currentUser = await clerk.users.getUser(userId);
+        const currentUser = await clerk.users.getUser(userId).catch(error => {
+          return res.status(500).json({ error: 'Failed to fetch current user data', details: error.message });
+        });
         const updatedMetadata = {
           role: newRole || currentUser.publicMetadata.role,
           permissions: permissions || currentUser.publicMetadata.permissions
@@ -150,11 +157,13 @@ const UserController = {
         // Update user role and permissions in Clerk
         await clerk.users.updateUser(userId, {
           publicMetadata: updatedMetadata,
+        }).catch(error => {
+          return res.status(500).json({ error: 'Failed to update user role and permissions in Clerk', details: error.message });
         });
     
         res.status(200).json({ message: 'User role and permissions updated successfully' });
       } catch (error) {
-        res.status(500).json({ message: 'Failed to update user role and permissions' });
+        res.status(500).json({ message: 'Failed to update user role and permissions'});
       }
     },
     // Add user to agency (Agency Owner only)
@@ -299,13 +308,11 @@ const UserController = {
               ...(logoUrl && { logo_url: logoUrl }),         // Only include logo URL if it's uploaded
               ...(faviconUrl && { favicon_url: faviconUrl }), // Only include favicon URL if it's uploaded
             };
-        
             // Update the branding data in the database
             const { error } = await supabase
-              .from('branding_assets')
-              .update(brandingData)
-              .eq('user_id', clientId);
-        
+              .from('users')
+              .update({ branding_assets: brandingData })
+              .eq('id', clientId);
             if (error) {
               throw error;
             }
@@ -322,11 +329,18 @@ const UserController = {
     async getBranding(req, res) {
     try {
         const clientId = req.params.user_id;
-        const branding = await supabase('branding_assets').where({ user_id: clientId }).first();
+        
+        const { data: branding, error } = await supabase.from('users').select('branding_assets').eq('id', clientId);
+        console.log(branding);
+        
+        if (error) {
+            throw error;
+        }
 
         if (!branding) {
             return res.status(404).json({ message: 'Branding not found.' });
         }
+        return res.status(200).json({ branding});
     }catch (error) {
     console.error('Error fetching branding:', error);
     res.status(500).json({ message: 'Failed to fetch branding.' });
