@@ -51,7 +51,7 @@ io.on('connection', (socket) => {
 
 app.use(express.json());
 app.use(cors({ origin: '*' }));
-app.use(schedulePollRoute);
+// app.use(schedulePollRoute);
 app.use(limiter);
 app.use('/api', routes);
 app.use(errorHandler);

@@ -153,6 +153,19 @@ const UserController = {
           role: newRole || currentUser.publicMetadata.role,
           permissions: permissions || currentUser.publicMetadata.permissions
         };
+         // Get the current user data from Supabase
+         const { data: currentUserSupa, error: currentUserError } = await supabase.from('users').select('*').eq('id', userId).single();
+         if (currentUserError) {
+           return res.status(500).json({ error: 'Failed to fetch current user data', details: currentUserError.message });
+         }
+ 
+         // Update user role in Supabase users table, keeping older data
+         const { error: updateRoleError } = await supabase.from('users').update({
+           role: newRole,
+         }).eq('id', userId);
+         if (updateRoleError) {
+           return res.status(500).json({ error: 'Failed to update user role in Supabase', details: updateRoleError.message });
+         }
 
         // Update user role and permissions in Clerk
         await clerk.users.updateUser(userId, {
