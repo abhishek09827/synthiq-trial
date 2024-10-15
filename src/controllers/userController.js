@@ -1,6 +1,6 @@
 import { supabase } from "../config/supabaseClient.js";
 import clerk from "../config/clerkClient.js";
-
+import {uploadFile} from "../utils/uploadFileUtils.js";
 const UserController = {
     // Get all users (Super Admin only)
     async addUser(req, res) {
@@ -296,8 +296,8 @@ const UserController = {
         
             // Upload files if present, otherwise return null
             const [logoUrl, faviconUrl] = await Promise.all([
-              logoFile ? uploadFile(logoFile.path, { folder: 'branding/logos' }) : null,
-              faviconFile ? uploadFile(faviconFile.path, { folder: 'branding/favicons' }) : null,
+              logoFile ? uploadFile(logoFile[0].path, { folder: 'branding/logos' }) : null,
+              faviconFile ? uploadFile(faviconFile[0].path, { folder: 'branding/favicons' }) : null,
             ]);
         
             // Branding data object
